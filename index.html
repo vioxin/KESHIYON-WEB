@@ -16,7 +16,7 @@
         <div class="eyebrow">BROWSER EDITION</div>
         <h1>KESHIYON <span>消し四目並べ</span></h1>
       </div>
-      <div class="topbar-right"><span class="live-dot"></span> 静的ウェブ版 · インストール不要</div>
+      <div class="topbar-right"><span class="live-dot"></span> GitHub Pages + オンライン対戦</div>
     </header>
 
     <main class="layout">
@@ -102,6 +102,25 @@
           <div class="section-heading"><span class="section-index">05</span><h2>共有対戦記録</h2></div>
           <p class="field-help">勝敗が確定した対局だけをGoogleスプレッドシートに集約します。引き分け・途中終了は保存しません。記録機能を有効にするには管理者によるApps Script URLの設定が必要です。</p>
           <div id="record-status" class="record-status record-muted" role="status">連携状態を確認中…</div>
+        </section>
+        <section class="panel online-panel">
+          <div class="section-heading"><span class="section-index">06</span><h2>オンライン対戦</h2></div>
+          <label class="field-label" for="online-url">RenderサーバーURL</label>
+          <input id="online-url" class="control-input" type="url" inputmode="url" placeholder="https://your-service.onrender.com" spellcheck="false" autocomplete="url">
+          <button id="online-connect" class="button button-muted button-wide" type="button">サーバーに接続</button>
+          <div id="online-status" class="online-status" role="status">サーバーURLを設定して接続してください。</div>
+          <div class="online-actions">
+            <button id="online-create" class="button button-primary" type="button" disabled>部屋を作成</button>
+            <button id="online-match" class="button button-secondary" type="button" disabled>オンラインマッチ</button>
+          </div>
+          <label class="field-label" for="online-code">ルームコード</label>
+          <div class="online-join-row">
+            <input id="online-code" class="control-input room-code-input" type="text" maxlength="6" placeholder="例：K7M2QX" autocapitalize="characters" autocomplete="off" spellcheck="false">
+            <button id="online-join" class="button button-secondary" type="button" disabled>参加</button>
+          </div>
+          <div id="room-code-display" class="room-code-display" hidden></div>
+          <button id="online-leave" class="button button-muted button-wide" type="button" disabled>オンラインから退出</button>
+          <p class="field-help">部屋コードを友達に共有するか、オンラインマッチで待機中の相手と自動マッチングします。対局中に接続が切れると、その部屋は終了します。</p>
         </section>
 
         <div class="action-stack">

@@ -407,3 +407,45 @@ button, select, input {
 .record-pending { border-color: #59502e; color: #e6d38a; }
 .record-muted { color: #9b9baa; }
 .record-error { border-color: #75404a; color: #ff9ca8; }
+
+
+/* Online multiplayer controls */
+.online-panel { min-width: 0; }
+.online-status {
+  margin: 10px 0;
+  padding: 9px 10px;
+  border: 1px solid #30303c;
+  border-radius: 7px;
+  background: #15151c;
+  color: #a2a2b4;
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.online-ready { color: #8ed6a2; border-color: #2f5140; }
+.online-pending { color: #d5c17b; border-color: #554b2b; }
+.online-error { color: #f08c95; border-color: #5a3035; }
+.online-info { color: #a2a2b4; }
+.online-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 9px 0 14px; }
+.online-actions .button { min-width: 0; padding-left: 8px; padding-right: 8px; }
+.online-join-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.online-join-row .button { min-width: 70px; }
+.room-code-input { text-transform: uppercase; letter-spacing: .12em; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.room-code-display {
+  margin: 10px 0;
+  border: 1px dashed #6868a6;
+  border-radius: 8px;
+  background: #20202e;
+  padding: 12px 10px;
+  color: #c7c7ff;
+  text-align: center;
+  font: 700 19px ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: .12em;
+  overflow-wrap: anywhere;
+}
+.online-panel .field-help { margin-top: 10px; }
+@media (max-width: 700px) {
+  .sidebar .online-panel { grid-column: 1 / -1; }
+  .online-actions .button { min-height: 46px; }
+  .online-join-row .button { min-height: 44px; }
+}
