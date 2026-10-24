@@ -98,6 +98,12 @@
           <button id="reset-params" class="button button-muted button-wide" type="button">パラメータを初期値に戻す</button>
         </section>
 
+        <section class="panel record-panel">
+          <div class="section-heading"><span class="section-index">05</span><h2>共有対戦記録</h2></div>
+          <p class="field-help">勝敗が確定した対局だけをGoogleスプレッドシートに集約します。引き分け・途中終了は保存しません。記録機能を有効にするには管理者によるApps Script URLの設定が必要です。</p>
+          <div id="record-status" class="record-status record-muted" role="status">連携状態を確認中…</div>
+        </section>
+
         <div class="action-stack">
           <button id="ai-move" class="button button-primary" type="button">✦ AIに手を選ばせる</button>
           <button id="new-game" class="button button-secondary" type="button">↻ 新しいゲーム</button>
@@ -129,7 +135,7 @@
           <div class="log-header"><div class="section-heading"><span class="section-index">LOG</span><h2>対局ログ</h2></div><button id="clear-log" class="text-button" type="button">ログを消去</button></div>
           <div id="game-log" class="game-log" aria-live="polite"></div>
         </section>
-        <footer class="page-footer"><span>KESHIYON · BROWSER EDITION</span><span>データはブラウザ内で処理されます</span></footer>
+        <footer class="page-footer"><span>KESHIYON · BROWSER EDITION</span><span>共有記録はGoogle Sheets連携設定時のみ送信</span></footer>
       </section>
     </main>
   </div>

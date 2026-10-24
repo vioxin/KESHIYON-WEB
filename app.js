@@ -2,8 +2,12 @@ import { State, COLS, MAX_ROWS } from './game.js';
 import { DEFAULT_PARAMS } from './ai.js';
 
 const API_URL_DEFAULT = 'https://MOUDOKU-keshiyon.hf.space/get_move';
+// Google Apps Script Web App URLを設定すると、勝敗が決まった対局だけ共有シートへ記録します。
+// 未設定のままなら記録機能は無効です。例: https://script.google.com/macros/s/DEPLOYMENT_ID/exec
+const SHEETS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbyHNhN1ZLIEpuMXmIZ3NNQld7gEvp2T_7-DQgZ8RIBO2gyUpQeEKZExnDnKrMyL09JtZA/exec';
 let state = new State();
 let moveCount = 0;
+let moveHistory = [];
 let searchWorker = null;
 let apiController = null;
 let apiBusy = false;
@@ -176,6 +180,7 @@ function playMove(col, row, source) {
     return false;
   }
   moveCount++;
+  moveHistory.push([col, row]);
   const side = moverIsCircle ? '○' : '×';
   if (source === 'ai') log(`AI(${side}) → 列=${col} 行=${row}`, 'ai');
   else log(`${side} が列=${col} 行=${row} に配置`, moverIsCircle ? 'o' : 'x');
@@ -188,6 +193,7 @@ function playMove(col, row, source) {
     const diff = state.ptsO - state.ptsX;
     log(diff > 0 ? `ゲーム終了：○ の勝利！（${state.ptsO} - ${state.ptsX}）` : diff < 0 ? `ゲーム終了：× の勝利！（${state.ptsO} - ${state.ptsX}）` : `ゲーム終了：引き分け（${state.ptsO} - ${state.ptsX}）`, 'system');
     setStatus('対局終了', '結果が確定しました。新しいゲームで再戦できます。', 'DONE');
+    void recordCompletedMatch();
   } else {
     scheduleNextMove();
   }
@@ -208,7 +214,7 @@ function scheduleNextMove() {
   }
   const kind = getPlayerType();
   if (kind === 'human') {
-    setStatus('あなたの番です', `${currentPlayerName()} の置けるマスをクリックしてください。`, 'YOUR TURN');
+    setStatus('あなたの番です', `${currentPlayerName()} の置けるマスをタップしてください。`, 'YOUR TURN');
     refresh();
     return;
   }
@@ -336,13 +342,71 @@ async function requestExternalMove() {
   }
 }
 
+function setRecordStatus(message, kind = 'info') {
+  const element = $('record-status');
+  if (!element) return;
+  element.textContent = message;
+  element.className = `record-status record-${kind}`;
+}
+
+function isSheetsEndpointConfigured() {
+  return typeof SHEETS_ENDPOINT === 'string' && /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec(?:\?.*)?$/.test(SHEETS_ENDPOINT);
+}
+
+async function recordCompletedMatch() {
+  const diff = state.ptsO - state.ptsX;
+  // This shared dataset intentionally contains wins/losses only: draws and unfinished games are excluded.
+  if (diff === 0) {
+    setRecordStatus('引き分けのため保存対象外', 'muted');
+    log('引き分けのため、共有対戦記録には保存しません。', 'system');
+    return;
+  }
+  if (!isSheetsEndpointConfigured()) {
+    setRecordStatus('未設定：Apps Script URLが必要', 'muted');
+    log('勝敗は確定しましたが、Google Sheets連携URLが未設定のため共有記録は保存されません。', 'system');
+    return;
+  }
+
+  const matchId = globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : `keshiyon_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`;
+  const payload = {
+    version: 1,
+    matchId,
+    moves: moveHistory.map(([col, row]) => [col, row]),
+    moveCount,
+    ptsO: state.ptsO,
+    ptsX: state.ptsX,
+    p1Type: p1Select.value,
+    p2Type: p2Select.value,
+  };
+  setRecordStatus('共有シートへ送信中…', 'pending');
+  try {
+    // Apps Script ContentService has limited CORS control; text/plain + no-cors avoids a preflight.
+    // Opaque responses cannot confirm whether the spreadsheet write succeeded.
+    await fetch(SHEETS_ENDPOINT, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+    setRecordStatus('送信要求済み（保存結果は確認不可）', 'pending');
+    log('勝敗が確定した対局の記録送信要求を出しました。ブラウザの仕様上、シートへの保存完了は直接確認できません。', 'system');
+  } catch (error) {
+    setRecordStatus('送信エラー：通信を確認してください', 'error');
+    log(`対戦記録の送信に失敗しました: ${error instanceof Error ? error.message : String(error)}`, 'error');
+  }
+}
+
 function startNewGame() {
   cancelPendingAI();
   state = new State();
   moveCount = 0;
+  moveHistory = [];
   logEl.replaceChildren();
   log('新しいゲームを開始しました。', 'system');
-  setStatus('対局準備完了', '置けるマスをクリックして対局を始めてください。', 'READY');
+  setStatus('対局準備完了', '置けるマスをタップして対局を始めてください。', 'READY');
   refresh();
   scheduleNextMove();
 }
@@ -376,6 +440,8 @@ for (const [inputId, outputId, format] of sliderMap) {
   });
 }
 
+if (isSheetsEndpointConfigured()) setRecordStatus('Google Sheets連携：設定済み', 'ready');
+else setRecordStatus('未設定：勝敗記録はまだ共有されません', 'muted');
 log('KESHIYON ブラウザ版を起動しました。', 'system');
-log('盤面をクリックするか、対戦設定でローカルAIを選んでください。', 'system');
+log('盤面をタップするか、対戦設定でローカルAIを選んでください。', 'system');
 refresh();
