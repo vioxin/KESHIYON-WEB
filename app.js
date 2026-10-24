@@ -6,7 +6,7 @@ const API_URL_DEFAULT = 'https://MOUDOKU-keshiyon.hf.space/get_move';
 // 未設定のままなら記録機能は無効です。例: https://script.google.com/macros/s/DEPLOYMENT_ID/exec
 const SHEETS_ENDPOINT = 'https://script.google.com/macros/s/AKfycbwE2LgHC1IomUW-Pih6M-L4mx56DYPrBIAhiqCR8rTA_gvBzUVEwOLbAf6Flql4qy0Rfg/exec';
 // Render WebSocket URLを app.js に埋め込まなくても、画面から設定できます。
-const ONLINE_URL_DEFAULT = '';
+const ONLINE_URL_DEFAULT = 'https://keshiyon-web.onrender.com';
 let state = new State();
 let moveCount = 0;
 let moveHistory = [];
