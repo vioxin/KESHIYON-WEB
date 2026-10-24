@@ -229,6 +229,20 @@ function handleMove(ws, message) {
   broadcastRoom(room, { lastMove: { move: [col, row], seat } });
 }
 
+const SHEETS_SAVE_TIMEOUT_MS = 30_000;
+const SHEETS_SAVE_MAX_ATTEMPTS = 3;
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableSheetsError(error) {
+  if (error && error.retryable === true) return true;
+  // fetch() may throw these when a connection is reset or our timeout expires.
+  if (error?.name === 'TimeoutError' || error?.name === 'AbortError' || error instanceof TypeError) return true;
+  return false;
+}
+
 async function saveCompletedMatch(room) {
   if (room.recordStarted) return;
   room.recordStarted = true;
@@ -247,27 +261,54 @@ async function saveCompletedMatch(room) {
     p1Type: 'online',
     p2Type: 'online',
   };
-  try {
-    const response = await fetch(SHEETS_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(12000),
-      redirect: 'follow',
-    });
-    const text = await response.text();
-    let result = null;
-    try { result = JSON.parse(text); } catch { /* handled below */ }
-    if (!response.ok || !result || result.ok !== true || !(result.saved || result.duplicate)) {
-      throw new Error(`Apps Script response ${response.status}: ${text.slice(0, 240)}`);
+
+  let lastError = null;
+  for (let attempt = 1; attempt <= SHEETS_SAVE_MAX_ATTEMPTS; attempt++) {
+    const startedAt = Date.now();
+    try {
+      const response = await fetch(SHEETS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(SHEETS_SAVE_TIMEOUT_MS),
+        redirect: 'follow',
+      });
+      const text = await response.text();
+      let result = null;
+      try { result = JSON.parse(text); } catch { /* report a useful error below */ }
+
+      if (response.ok && result?.ok === true && (result.saved || result.duplicate)) {
+        room.recordStatus = 'saved';
+        console.log(`Google Sheets save confirmed (attempt ${attempt}/${SHEETS_SAVE_MAX_ATTEMPTS}, ${Date.now() - startedAt} ms, duplicate=${Boolean(result.duplicate)}).`);
+        announceRoom(room, {
+          type: 'record_status', status: 'saved', duplicate: Boolean(result.duplicate),
+          message: result.duplicate ? 'この対局はすでに記録されています。重複登録はしていません。' : '対局を共有スプレッドシートに保存しました。',
+        });
+        return;
+      }
+
+      const detail = `Apps Script response ${response.status}: ${text.slice(0, 400)}`;
+      const code = result && typeof result.error === 'string' ? result.error : '';
+      const retryableCode = ['BUSY', 'RATE_LIMIT', 'TEMPORARY_ERROR', 'SERVICE_UNAVAILABLE'].includes(code);
+      const error = new Error(detail);
+      error.retryable = retryableCode || response.status === 429 || response.status >= 500;
+      throw error;
+    } catch (error) {
+      lastError = error;
+      const retryable = isRetryableSheetsError(error);
+      console.warn(`Google Sheets save attempt ${attempt}/${SHEETS_SAVE_MAX_ATTEMPTS} failed after ${Date.now() - startedAt} ms (retryable=${retryable}): ${error?.message || error}`);
+      if (!retryable || attempt === SHEETS_SAVE_MAX_ATTEMPTS) break;
+      // Retrying the exact same matchId is safe: Code.gs checks for an existing row first.
+      await wait(1500 * attempt);
     }
-    room.recordStatus = 'saved';
-    announceRoom(room, { type: 'record_status', status: 'saved', duplicate: Boolean(result.duplicate), message: '対局を共有スプレッドシートに保存しました。' });
-  } catch (error) {
-    room.recordStatus = 'error';
-    console.error('Google Sheets save failed:', error);
-    announceRoom(room, { type: 'record_status', status: 'error', message: 'Google Sheetsへの保存に失敗しました。SHEETS_ENDPOINTとApps Scriptの公開設定を確認してください。' });
   }
+
+  room.recordStatus = 'error';
+  console.error(`Google Sheets save could not be confirmed after ${SHEETS_SAVE_MAX_ATTEMPTS} attempt(s):`, lastError);
+  announceRoom(room, {
+    type: 'record_status', status: 'error',
+    message: '保存の応答を確認できませんでした。同じ対局IDで再送しましたが、記録済みの可能性もあります。スプレッドシートとApps Scriptの実行履歴を確認してください。',
+  });
 }
 
 function requestRematch(ws) {
